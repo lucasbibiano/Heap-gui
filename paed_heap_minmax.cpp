@@ -258,17 +258,7 @@ void draw_menu(int start_y)
   else
   {
     al_draw_textf(font, al_map_rgb(0, 0, 0), 0, start_y, 
-      ALLEGRO_ALIGN_LEFT, "Aperte 'A' para alterar a prioridade do nó");
-    
-    start_y += 16;
-
-    al_draw_textf(font, al_map_rgb(0, 0, 0), 0, start_y, 
-      ALLEGRO_ALIGN_LEFT, "Clique na parte vazia da tela para remover a seleção do nó");
-
-    start_y += 16;
-
-    al_draw_textf(font, al_map_rgb(0, 0, 0), 0, start_y, 
-      ALLEGRO_ALIGN_LEFT, "Clique na parte vazia da tela para remover a seleção do nó");
+      ALLEGRO_ALIGN_LEFT, "Nenhuma operação pode ser realizada sobre o nó");
   }
 }
 
@@ -345,11 +335,21 @@ int main(int argc, char **argv){
     else if (ev.type == ALLEGRO_EVENT_KEY_DOWN)
     {
       if (ev.keyboard.keycode == ALLEGRO_KEY_LEFT)
+      {
         left = true;
+      }
       else if (ev.keyboard.keycode == ALLEGRO_KEY_RIGHT)
+      {
         right = true;
-      else if (ev.keyboard.keycode == ALLEGRO_KEY_ESCAPE)
-        break;
+      }
+      else
+      {
+        if (selected == -1)
+        {
+          if (ev.keyboard.keycode == ALLEGRO_KEY_ESCAPE)
+            break;
+        }
+      }
     }
     else if (ev.type == ALLEGRO_EVENT_KEY_UP)
     {
@@ -357,13 +357,19 @@ int main(int argc, char **argv){
         left = false;
       else if (ev.keyboard.keycode == ALLEGRO_KEY_RIGHT)
         right = false;
-      else if (ev.keyboard.keycode == ALLEGRO_KEY_D)
+      else
       {
-        adicionar_no(ESPECIFICO);
-      }
-      else if (ev.keyboard.keycode == ALLEGRO_KEY_R)
-      {
-        adicionar_no(ALEATORIO);
+        if (selected == -1)
+        {
+          if (ev.keyboard.keycode == ALLEGRO_KEY_R)
+          {
+            adicionar_no(ALEATORIO);
+          }
+          else if (ev.keyboard.keycode == ALLEGRO_KEY_D)
+          {
+            adicionar_no(ESPECIFICO);
+          }  
+        }
       }
     }
     else if (ev.type == ALLEGRO_EVENT_MOUSE_BUTTON_DOWN)

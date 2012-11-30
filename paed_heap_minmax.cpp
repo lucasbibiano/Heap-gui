@@ -4,6 +4,7 @@
 #include <allegro5/allegro_primitives.h>
 #include <allegro5/allegro_font.h>
 #include <allegro5/allegro_ttf.h>
+#include <allegro5/allegro_image.h>
 
 #include <queue>
 
@@ -14,7 +15,10 @@ using namespace std;
 
 #define SCREEN_W 900
 #define SCREEN_H 600
-#define DEFAULT_RADIUS 10
+#define DEFAULT_RADIUS 12
+
+#define ESPECIFICO 0
+#define ALEATORIO 1
 
 typedef struct Tno
 {
@@ -40,6 +44,13 @@ Vector2D camera;
 
 int heap_length;
 
+string mensagem;
+
+int selected;
+
+//posicoes dos nos
+Vector2D posNos[105];
+
 void update_screen()
 {
   al_set_target_bitmap(al_get_backbuffer(screen));
@@ -48,7 +59,7 @@ void update_screen()
  
 bool init_double_buffering()
 {
-  buffer = al_create_bitmap(3000, SCREEN_H);
+  buffer = al_create_bitmap(SCREEN_W, SCREEN_H);
   
   if(!buffer)
      return false;
@@ -58,6 +69,8 @@ bool init_double_buffering()
 
 bool init()
 {
+  selected = -1;
+
   if(!al_init()) 
   {
      fprintf(stderr, "failed to initialize allegro!\n");
@@ -72,6 +85,8 @@ bool init()
   
   al_init_font_addon();
 
+  al_init_image_addon();
+
   if (!al_init_ttf_addon())
   {
     fprintf(stderr, "Falha ao inicializar add-on allegro_ttf.\n");
@@ -85,6 +100,9 @@ bool init()
     fprintf(stderr, "failed to create font!\n");
     return false;
   }
+
+  al_set_new_display_option(ALLEGRO_SAMPLE_BUFFERS, 1, ALLEGRO_SUGGEST);
+  al_set_new_display_option(ALLEGRO_SAMPLES, 8, ALLEGRO_SUGGEST);
 
   screen = al_create_display(SCREEN_W, SCREEN_H);
   if(!screen) 
@@ -126,6 +144,9 @@ bool init()
   
   al_register_event_source(event_queue, al_get_keyboard_event_source());
 
+  al_register_event_source(event_queue, al_get_mouse_event_source());
+
+
   al_start_timer(timer);
 
   return true;
@@ -133,7 +154,7 @@ bool init()
 
 void draw_heap(int * heap)
 {
-  Vector2D start = Vector2D((SCREEN_W - DEFAULT_RADIUS * 2)/2 + DEFAULT_RADIUS, 20) + camera; 
+  Vector2D start = Vector2D((SCREEN_W - DEFAULT_RADIUS * 2)/2 + DEFAULT_RADIUS, 50) + camera; 
   float angle = _angle;
 
   int mult = 1;
@@ -155,14 +176,20 @@ void draw_heap(int * heap)
 
     Vector2D aux = start + dirLeft;
 
-    al_draw_circle(start.x, start.y, DEFAULT_RADIUS, al_map_rgb(0, 255, 0), 1);   
-    al_draw_textf(font, al_map_rgb(0, 0, 0), start.x, start.y - DEFAULT_RADIUS + 1, 
+    if (selected == i)
+      al_draw_circle(start.x, start.y, DEFAULT_RADIUS, al_map_rgb(255, 0, 0), 2);   
+    else
+      al_draw_circle(start.x, start.y, DEFAULT_RADIUS, al_map_rgb(0, 255, 0), 2);   
+
+    al_draw_textf(font, al_map_rgb(0, 0, 0), start.x, start.y - DEFAULT_RADIUS + 3, 
       ALLEGRO_ALIGN_CENTRE, "%02d", i);
+
+    posNos[i] = start;
 
     if (i * 2 <= heap_length)
     {
       al_draw_line(start.x, start.y + DEFAULT_RADIUS, aux.x, aux.y + DEFAULT_RADIUS,
-        al_map_rgb(0,0,255), 1);
+        al_map_rgb(0, 0, 255), 2);
     }
 
     toDraw.push(aux + Vector2D(0, DEFAULT_RADIUS * 2));
@@ -172,7 +199,7 @@ void draw_heap(int * heap)
     if (i * 2 + 1 <= heap_length)
     {
       al_draw_line(start.x, start.y + DEFAULT_RADIUS, aux.x, aux.y + DEFAULT_RADIUS,
-        al_map_rgb(0,0,255), 1);
+        al_map_rgb(0, 0, 255), 2);
     }
 
     toDraw.push(aux + Vector2D(0, DEFAULT_RADIUS * 2));
@@ -196,49 +223,108 @@ void draw_heap(int * heap)
   }
 }
 
-void mouse()
+void draw_menu(int start_y)
 {
-  ALLEGRO_MOUSE_STATE state;
+  if (selected == -1)
+  {
+    al_draw_textf(font, al_map_rgb(0, 0, 0), 0, start_y, 
+      ALLEGRO_ALIGN_LEFT, "Use as setas para rolar a visualização da árvore");
 
-  al_get_mouse_state(&state);
-  if (state.buttons & 1) {
-    /* Primary (e.g. left) mouse button is held. */
-    printf("Mouse position: (%d, %d)\n", state.x, state.y);
+    start_y += 16;
+
+    al_draw_textf(font, al_map_rgb(0, 0, 0), 0, start_y, 
+      ALLEGRO_ALIGN_LEFT, "Clique em um nó para selecioná-lo");
+
+    start_y += 16;
+
+    al_draw_textf(font, al_map_rgb(0, 0, 0), 0, start_y, 
+      ALLEGRO_ALIGN_LEFT, "Aperte 'R' para adicionar um nó de valor aleatório a árvore");
+
+    start_y += 16;
+
+    al_draw_textf(font, al_map_rgb(0, 0, 0), 0, start_y, 
+      ALLEGRO_ALIGN_LEFT, "Aperte 'D' para adicionar um nó de valor específico a árvore");
+
+    start_y += 16;
+
+    al_draw_textf(font, al_map_rgb(0, 0, 0), 0, start_y, 
+      ALLEGRO_ALIGN_LEFT, "Aperte 'M' para remover o nó mínimo da árvore");
+
+    start_y += 16;
+
+    al_draw_textf(font, al_map_rgb(0, 0, 0), 0, start_y, 
+      ALLEGRO_ALIGN_LEFT, "Aperte 'X' para remover o nó máximo da árvore");
   }
-  if (state.buttons & 2) {
-    /* Secondary (e.g. right) mouse button is held. */
-  }
-  if (state.buttons & 4) {
-    /* Tertiary (e.g. middle) mouse button is held. */
+  else
+  {
+    al_draw_textf(font, al_map_rgb(0, 0, 0), 0, start_y, 
+      ALLEGRO_ALIGN_LEFT, "Aperte 'A' para alterar a prioridade do nó");
+    
+    start_y += 16;
+
+    al_draw_textf(font, al_map_rgb(0, 0, 0), 0, start_y, 
+      ALLEGRO_ALIGN_LEFT, "Clique na parte vazia da tela para remover a seleção do nó");
+
+    start_y += 16;
+
+    al_draw_textf(font, al_map_rgb(0, 0, 0), 0, start_y, 
+      ALLEGRO_ALIGN_LEFT, "Clique na parte vazia da tela para remover a seleção do nó");
   }
 }
 
-bool is_key_pressed(int key)
+void ajustar()
 {
-  ALLEGRO_KEYBOARD_STATE s;
-  al_get_keyboard_state(&s);
-  return al_key_down(&s, key);
+  _size = 50;
+  _angle = 5;
+
+  if (heap_length > 3 && heap_length <= 7)
+  {
+    _size = 100;
+  }
+  else if (heap_length > 7 && heap_length <= 15)
+  {
+    _size = 200;
+  }
+  else if (heap_length > 15 && heap_length <= 31)
+  {
+    _size = 300;
+  }
+  else if (heap_length > 31 && heap_length <= 63)
+  {
+    _size = 400;
+  }
+  else if (heap_length > 63)
+  {
+    _size = 600;
+  }
+}
+
+void adicionar_no(int modo)
+{
+  stringstream ss;
+  ss << "Nó de valor ";
+
+  if (heap_length < 10) 
+    ss << "0";
+
+  ss << heap_length << " adicionado.";
+  
+  heap_length++;
+  mensagem = ss.str();
+
+  ajustar();
 }
 
 int main(int argc, char **argv){
 
-  int heap[] = {0, 70, 67, 35, 48, 21, 23, 15, 8};
-  heap_length = 100;
+  int heap[] = {-1, 70, 67, 35, 48, 21, 23, 15, 8};
+  heap_length = 1;
 
   if (!init())
     return -1;
 
-  if (heap_length <= 63)
-  {
-    _size = 220;
-    _angle = 5;
-  }
-  else
-  {
-    _size = 440;
-    _angle = 5;
-  }
-  
+  ajustar();
+
   bool left = false;
   bool right = false;
 
@@ -271,16 +357,47 @@ int main(int argc, char **argv){
         left = false;
       else if (ev.keyboard.keycode == ALLEGRO_KEY_RIGHT)
         right = false;
+      else if (ev.keyboard.keycode == ALLEGRO_KEY_D)
+      {
+        adicionar_no(ESPECIFICO);
+      }
+      else if (ev.keyboard.keycode == ALLEGRO_KEY_R)
+      {
+        adicionar_no(ALEATORIO);
+      }
+    }
+    else if (ev.type == ALLEGRO_EVENT_MOUSE_BUTTON_DOWN)
+    {
+      int newSelected = selected;
+      for (int i = 1; i <= heap_length; i++)
+      {
+        if ((Vector2D(ev.mouse.x, ev.mouse.y) - posNos[i]).size() <= DEFAULT_RADIUS)
+        {
+          newSelected = i;
+          break;
+        }
+      }
+
+      if (newSelected == selected)
+        selected = -1;
+      else
+        selected = newSelected;
     }
 
     if (left)
     {
       camera += Vector2D(10, 0);
+
+      if (camera.x > 820)
+        camera = Vector2D(820, 0);
     }
 
     if (right)
     {
       camera += Vector2D(-10, 0);
+
+      if (camera.x < -820)
+        camera = Vector2D(-820, 0);
     }
 
     if(redraw && al_event_queue_is_empty(event_queue)) 
@@ -289,6 +406,17 @@ int main(int argc, char **argv){
 
       al_set_target_bitmap(buffer);
       al_clear_to_color(al_map_rgb(255, 255, 255));
+
+      al_draw_textf(font, al_map_rgb(0, 0, 0), (SCREEN_W - DEFAULT_RADIUS * 2)/2, 0, 
+        ALLEGRO_ALIGN_CENTRE, "Heap min-max");
+
+      draw_menu(430);
+
+      al_draw_textf(font, al_map_rgb(0, 0, 0), 0, SCREEN_H - 16, 
+        ALLEGRO_ALIGN_LEFT, "Aperte 'ESC' para sair");
+
+      al_draw_textf(font, al_map_rgb(255, 0, 0), 900, SCREEN_H - 16, 
+        ALLEGRO_ALIGN_RIGHT, mensagem.c_str());
 
       draw_heap(heap);
       update_screen();

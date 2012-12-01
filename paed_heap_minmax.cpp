@@ -77,7 +77,7 @@ int maxDescendant(int i)
     for (int k = i * 4; (k <= i * 4 + 3) && k <= heap_length; k++)
     {
       if (heap[k] > heap[m])
-        m = i;
+        m = k;
     }
   }
 
@@ -675,7 +675,6 @@ int pop_min()
     al_rest(5.0);
     */
 
-    
     heap_length--;
     descendMin(1);
   }
@@ -701,6 +700,7 @@ int pop_max()
     {
       result = heap[2];
       heap[2] = heap[heap_length];
+
       heap_length--;
       descendMax(2);
     }
@@ -708,6 +708,7 @@ int pop_max()
     {
       result = heap[3];
       heap[3] = heap[heap_length];
+
       heap_length--;
       descendMax(3);
     }    
